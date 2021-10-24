@@ -2,7 +2,7 @@
     <ValidationProvider
         :class="classComponent"
         v-slot="{ errors }"
-        name="label"
+        :name="label"
         :rules="rules"
     >
         <FormGroup :error="errors[0]" :label="label">

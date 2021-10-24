@@ -1,5 +1,6 @@
 <template>
     <div class="form">
+        <div class="loading" v-if="loading">Loading...</div>
         <h1 class="form__title">Sign up</h1>
 
         <ValidationObserver ref="signUpForm">
@@ -67,9 +68,16 @@
                     <FormGroup :error="errors[0]" label="Company address">
                         <input type="text" v-model="formData.companyAddress"
                                @keyup="loadPlace(formData.companyAddress)"
-                               @keydown="clearTypingTimer">
+                               @keydown="clearTypingTimer"
+                               @blur="hideDropdown()"
+                        >
+                        <ul class="list-company" v-if="candidates.length && showDropdown">
+                            <li v-for="({formatted_address}, key) in candidates" :key="key"
+                                @click="formData.companyAddress = formatted_address, hideDropdown() ">
+                                {{ formatted_address }}
+                            </li>
+                        </ul>
                     </FormGroup>
-                    <span ref="test"></span>
                 </ValidationProvider>
             </div>
 
@@ -156,9 +164,12 @@ export default {
 
     data () {
         return {
+            loading: false,
             apiKey: 'AIzaSyABCnfrUho1FpFy0unBOIQGjzxsb5CcgPk',
             errorAccept: false,
             fieldPasswordType: 'password',
+            candidates: [],
+            showDropdown: false,
             formData: {
                 firstName: '',
                 lastName: '',
@@ -203,26 +214,32 @@ export default {
             clearTimeout(this.typingTimer)
         },
 
+        hideDropdown () {
+            setTimeout(() => {
+                this.showDropdown = false
+            }, 100)
+        },
+
         loadPlace (value) {
             if (!value) return
 
             clearTimeout(this.typingTimer)
-            this.typingTimer = setTimeout(() => {
-                const url = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?fields=name&input=${value}&inputtype=textquery&key=${this.apiKey}`
+            this.typingTimer = setTimeout(async () => {
+                const url = `/maps/api/place/findplacefromtext/json?fields=formatted_address&input=${value}&inputtype=textquery&key=${this.apiKey}`
                 const config = {
                     method: 'get',
                     url,
                     headers: {}
                 }
 
-                axios(config)
-                    .then(function (response) {
-                        console.log(JSON.stringify(response.data))
-                    })
-                    .catch(function (error) {
-                        console.log(error)
-                    })
-            }, 1000)
+                try {
+                    const { data } = await axios(config)
+                    this.showDropdown = true
+                    this.candidates = data.candidates
+                } catch (e) {
+                    console.log(e)
+                }
+            }, 500)
         },
 
         showPassword () {
@@ -241,8 +258,12 @@ export default {
             const isValid = await this.$refs.signUpForm.validate()
             this.errorAccept = !this.formData.accept
             if (!isValid || this.errorAccept) return
-
+            this.loading = true
             console.log(this.formData)
+
+            setTimeout(() => {
+                this.loading = false
+            }, 1500)
         },
 
         changeCode (key, {
@@ -355,6 +376,28 @@ select {
     }
 }
 
+.list-company {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    margin: -1px 0 0;
+    list-style-type: none;
+    border: 1px solid var(--border-color);
+    background: #fff;
+    z-index: 1;
+    top: 100%;
+
+    li {
+        cursor: pointer;
+        font-size: 12px;
+        padding: 8px;
+
+        &:hover {
+            background: lightblue;
+        }
+    }
+}
+
 .btn {
     background: var(--btn-bg-color);
     border: none;
@@ -391,13 +434,27 @@ select {
     & > :last-child {
         width: 50%;
 
-        select {
+        input {
             border-radius: 0 2px 2px 0;
         }
     }
 }
 
+.loading {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    background-color: rgba(255, 255, 255, .5);
+}
+
 .form {
+    position: relative;
     background: #fff;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     margin: 0 auto;
